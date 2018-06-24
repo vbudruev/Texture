@@ -52,6 +52,7 @@
 #import <AsyncDisplayKit/ASWeakProxy.h>
 #import <AsyncDisplayKit/ASResponderChainEnumerator.h>
 #import <AsyncDisplayKit/ASTipsController.h>
+#import <AsyncDisplayKit/CoreGraphics+ASConvenience.h>
 
 // Conditionally time these scopes to our debug ivars (only exist in debug/profile builds)
 #if TIME_DISPLAYNODE_OPS
@@ -1467,7 +1468,7 @@ NSString * const ASRenderingEngineDidDisplayNodesScheduledBeforeTimestamp = @"AS
     __instanceLock__.lock();
     if (_placeholderLayer.superlayer && !placeholderShouldPersist) {
       void (^cleanupBlock)() = ^{
-        [_placeholderLayer removeFromSuperlayer];
+        [self->_placeholderLayer removeFromSuperlayer];
       };
 
       if (_placeholderFadeDuration > 0.0 && ASInterfaceStateIncludesVisible(self.interfaceState)) {
@@ -1625,24 +1626,29 @@ void recursivelyTriggerDisplayForLayer(CALayer *layer, BOOL shouldBlock)
       CGSize size = CGSizeMake(radius + 1, radius + 1);
       ASGraphicsBeginImageContextWithOptions(size, NO, self.contentsScaleForDisplay);
       
-      CGContextRef ctx = UIGraphicsGetCurrentContext();
+      CGContextRef context = UIGraphicsGetCurrentContext();
       if (isRight == YES) {
-        CGContextTranslateCTM(ctx, -radius + 1, 0);
+        CGContextTranslateCTM(context, -radius + 1, 0);
       }
       if (isTop == YES) {
-        CGContextTranslateCTM(ctx, 0, -radius + 1);
+        CGContextTranslateCTM(context, 0, -radius + 1);
       }
-      UIBezierPath *roundedRect = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(0, 0, radius * 2, radius * 2) cornerRadius:radius];
-      [roundedRect setUsesEvenOddFillRule:YES];
-      [roundedRect appendPath:[UIBezierPath bezierPathWithRect:CGRectMake(-1, -1, radius * 2 + 1, radius * 2 + 1)]];
-      [backgroundColor setFill];
-      [roundedRect fill];
-      
+
+      CGMutablePathRef roundedPath = CGPathCreateMutable();
+      CGPathRef addedPath = ASCGRoundedPathCreate(CGRectMake(0, 0, radius * 2, radius * 2), radius);
+      CGPathAddPath(roundedPath, NULL, addedPath);
+      CGPathAddRect(roundedPath, NULL, CGRectMake(-1, -1, radius * 2 + 1, radius * 2 + 1));
+      CGContextAddPath(context, roundedPath);
+      CGContextSetFillColorWithColor(context, backgroundColor.CGColor);
+      CGContextEOFillPath(context);
+
       // No lock needed, as _clipCornerLayers is only modified on the main thread.
-      CALayer *clipCornerLayer = _clipCornerLayers[idx];
-      clipCornerLayer.contents = (id)(ASGraphicsGetImageAndEndCurrentContext().CGImage);
-      clipCornerLayer.bounds = CGRectMake(0.0, 0.0, size.width, size.height);
-      clipCornerLayer.anchorPoint = CGPointMake(isRight ? 1.0 : 0.0, isTop ? 1.0 : 0.0);
+      self->_clipCornerLayers[idx].contents = (id)(ASGraphicsGetImageAndEndCurrentContext().CGImage);
+      self->_clipCornerLayers[idx].bounds = CGRectMake(0.0, 0.0, size.width, size.height);
+      self->_clipCornerLayers[idx].anchorPoint = CGPointMake(isRight ? 1.0 : 0.0, isTop ? 1.0 : 0.0);
+      
+      CGPathRelease(addedPath);
+      CGPathRelease(roundedPath);
     }
     [self _layoutClipCornersIfNeeded];
   });
@@ -1654,17 +1660,17 @@ void recursivelyTriggerDisplayForLayer(CALayer *layer, BOOL shouldBlock)
     ASDisplayNodeAssertMainThread();
     if (visible) {
       for (int idx = 0; idx < 4; idx++) {
-        if (_clipCornerLayers[idx] == nil) {
-          _clipCornerLayers[idx] = [[CALayer alloc] init];
-          _clipCornerLayers[idx].zPosition = 99999;
-          _clipCornerLayers[idx].delegate = self;
+        if (self->_clipCornerLayers[idx] == nil) {
+          self->_clipCornerLayers[idx] = [[CALayer alloc] init];
+          self->_clipCornerLayers[idx].zPosition = 99999;
+          self->_clipCornerLayers[idx].delegate = self;
         }
       }
-      [self _updateClipCornerLayerContentsWithRadius:_cornerRadius backgroundColor:self.backgroundColor];
+      [self _updateClipCornerLayerContentsWithRadius:self->_cornerRadius backgroundColor:self.backgroundColor];
     } else {
       for (int idx = 0; idx < 4; idx++) {
-        [_clipCornerLayers[idx] removeFromSuperlayer];
-        _clipCornerLayers[idx] = nil;
+        [self->_clipCornerLayers[idx] removeFromSuperlayer];
+        self->_clipCornerLayers[idx] = nil;
       }
     }
   });
@@ -1822,7 +1828,10 @@ static void _recursivelySetDisplaySuspended(ASDisplayNode *node, CALayer *layer,
   [self displayDidFinish];
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 - (void)displayWillStart {}
+#pragma clang diagnostic pop
 - (void)displayWillStartAsynchronously:(BOOL)asynchronously
 {
   ASDisplayNodeAssertMainThread();
@@ -2925,11 +2934,11 @@ ASDISPLAYNODE_INLINE BOOL subtreeIsRasterized(ASDisplayNode *node) {
   if (ASInterfaceStateIncludesVisible(self.pendingInterfaceState)) {
     void(^exitVisibleInterfaceState)(void) = ^{
       // This block intentionally retains self.
-      __instanceLock__.lock();
-      unsigned isStillInHierarchy = _flags.isInHierarchy;
-      BOOL isVisible = ASInterfaceStateIncludesVisible(_pendingInterfaceState);
-      ASInterfaceState newState = (_pendingInterfaceState & ~ASInterfaceStateVisible);
-      __instanceLock__.unlock();
+      self->__instanceLock__.lock();
+      unsigned isStillInHierarchy = self->_flags.isInHierarchy;
+      BOOL isVisible = ASInterfaceStateIncludesVisible(self->_pendingInterfaceState);
+      ASInterfaceState newState = (self->_pendingInterfaceState & ~ASInterfaceStateVisible);
+      self->__instanceLock__.unlock();
       if (!isStillInHierarchy && isVisible) {
 #if ENABLE_NEW_EXIT_HIERARCHY_BEHAVIOR
         if (![self supportsRangeManagedInterfaceState]) {
@@ -3088,8 +3097,8 @@ ASDISPLAYNODE_INLINE BOOL subtreeIsRasterized(ASDisplayNode *node) {
         [self setDisplaySuspended:YES];
         //schedule clear contents on next runloop
         dispatch_async(dispatch_get_main_queue(), ^{
-          ASDN::MutexLocker l(__instanceLock__);
-          if (ASInterfaceStateIncludesDisplay(_interfaceState) == NO) {
+          ASDN::MutexLocker l(self->__instanceLock__);
+          if (ASInterfaceStateIncludesDisplay(self->_interfaceState) == NO) {
             [self clearContents];
           }
         });
@@ -3106,8 +3115,8 @@ ASDISPLAYNODE_INLINE BOOL subtreeIsRasterized(ASDisplayNode *node) {
             [[self asyncLayer] cancelAsyncDisplay];
             //schedule clear contents on next runloop
             dispatch_async(dispatch_get_main_queue(), ^{
-              ASDN::MutexLocker l(__instanceLock__);
-              if (ASInterfaceStateIncludesDisplay(_interfaceState) == NO) {
+              ASDN::MutexLocker l(self->__instanceLock__);
+              if (ASInterfaceStateIncludesDisplay(self->_interfaceState) == NO) {
                 [self clearContents];
               }
             });
