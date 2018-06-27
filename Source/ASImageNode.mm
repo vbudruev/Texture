@@ -511,7 +511,12 @@ static ASDN::StaticMutex& cacheLock = *new ASDN::StaticMutex;
   CGBlendMode blendMode = canUseCopy ? kCGBlendModeCopy : kCGBlendModeNormal;
   
   @synchronized(image) {
-    [image drawInRect:key.imageDrawRect blendMode:blendMode alpha:1];
+    CGRect imageDrawRect = key.imageDrawRect;
+    CGContextSetBlendMode(context, blendMode);
+    CGContextTranslateCTM(context, 0, CGRectGetMaxY(imageDrawRect) + CGRectGetMinY(imageDrawRect));
+    CGContextScaleCTM(context, 1, -1);
+    CGContextSetAlpha(context, 1.0);
+    CGContextDrawImage(context, imageDrawRect, image.CGImage); // We are adding one retain count
   }
   
   if (context && key.didDisplayNodeContentWithRenderingContext) {
