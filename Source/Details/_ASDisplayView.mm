@@ -452,11 +452,15 @@ static _ASDisplayViewMethodOverrides GetASDisplayViewMethodOverrides(Class c)
 
 #pragma mark UIResponder Handling
 
-#define IMPLEMENT_RESPONDER_METHOD(__sel, __methodOverride) \
+#define IMPLEMENT_RESPONDER_METHOD(__sel, __methodOverride, __callSuper) \
 - (BOOL)__sel\
 {\
   ASDisplayNode *node = _asyncdisplaykit_node; /* Create strong reference to weak ivar. */ \
   SEL sel = @selector(__sel); \
+  /* Certain responder methods need to call super */ \
+  if (__callSuper) { \
+    [super __sel]; \
+  }\
   /* Prevent an infinite loop in here if [super canBecomeFirstResponder] was called on a
   / _ASDisplayView subclass */ \
   if (self->_methodOverrides & __methodOverride) { \
@@ -480,11 +484,11 @@ are not overridden by a ASDisplayNode subclass */ \
   return [super __sel]; \
 } \
 
-IMPLEMENT_RESPONDER_METHOD(canBecomeFirstResponder, _ASDisplayViewMethodOverrideCanBecomeFirstResponder);
-IMPLEMENT_RESPONDER_METHOD(becomeFirstResponder, _ASDisplayViewMethodOverrideBecomeFirstResponder);
-IMPLEMENT_RESPONDER_METHOD(canResignFirstResponder, _ASDisplayViewMethodOverrideCanResignFirstResponder);
-IMPLEMENT_RESPONDER_METHOD(resignFirstResponder, _ASDisplayViewMethodOverrideResignFirstResponder);
-IMPLEMENT_RESPONDER_METHOD(isFirstResponder, _ASDisplayViewMethodOverrideIsFirstResponder);
+IMPLEMENT_RESPONDER_METHOD(canBecomeFirstResponder, _ASDisplayViewMethodOverrideCanBecomeFirstResponder, NO);
+IMPLEMENT_RESPONDER_METHOD(becomeFirstResponder, _ASDisplayViewMethodOverrideBecomeFirstResponder, NO);
+IMPLEMENT_RESPONDER_METHOD(canResignFirstResponder, _ASDisplayViewMethodOverrideCanResignFirstResponder, NO);
+IMPLEMENT_RESPONDER_METHOD(resignFirstResponder, _ASDisplayViewMethodOverrideResignFirstResponder, YES);
+IMPLEMENT_RESPONDER_METHOD(isFirstResponder, _ASDisplayViewMethodOverrideIsFirstResponder, NO);
 
 - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
 {
