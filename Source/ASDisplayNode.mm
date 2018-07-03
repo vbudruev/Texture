@@ -592,7 +592,8 @@ ASSynthesizeLockingMethodsWithMutex(__instanceLock__);
   }
 
   if (![self _locked_shouldLoadViewOrLayer]) {
-    return nil;
+    // Ugly cast to please the static analyzer
+    return (UIView * _Nonnull)nil;
   }
   
   // Loading a view needs to happen on the main thread
@@ -633,7 +634,8 @@ ASSynthesizeLockingMethodsWithMutex(__instanceLock__);
   }
   
   if (![self _locked_shouldLoadViewOrLayer]) {
-    return nil;
+    // Ugly cast to to please the static analyzer
+    return (CALayer * _Nonnull)nil;
   }
   
   // Loading a layer needs to happen on the main thread
