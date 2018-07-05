@@ -3653,7 +3653,7 @@ ASDISPLAYNODE_INLINE BOOL subtreeIsRasterized(ASDisplayNode *node) {
 - (NSString *)debugDescription
 {
   ASPushMainThreadAssertionsDisabled();
-  auto result = ASObjectDescriptionMake(self, [self propertiesForDebugDescription]);
+  let result = ASObjectDescriptionMake(self, [self propertiesForDebugDescription]);
   ASPopMainThreadAssertionsDisabled();
   return result;
 }
@@ -3725,7 +3725,7 @@ ASDISPLAYNODE_INLINE BOOL subtreeIsRasterized(ASDisplayNode *node) {
 {
   ASPushMainThreadAssertionsDisabled();
   ASDN::MutexLocker l(__instanceLock__);
-  auto props = [NSMutableArray<NSDictionary *> array];
+  let props = [[NSMutableArray<NSDictionary *> alloc] init];
 
   [props addObject:@{ @"layoutVersion": @(_layoutVersion.load()) }];
   [props addObject:@{ @"bounds": [NSValue valueWithCGRect:self.bounds] }];
