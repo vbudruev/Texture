@@ -48,7 +48,8 @@ Pod::Spec.new do |spec|
   end
 
   spec.subspec 'IGListKit' do |igl|
-      igl.dependency 'IGListKit', :git => 'https://github.com/vbudruev/IGListKit.git'
+      igl.dependency 'IGListKit', '~> 3.0'
+      igl.source = { :git => 'https://github.com/vbudruev/IGListKit.git' }
       igl.dependency 'Texture/Core'
   end
 
